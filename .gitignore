@@ -1,0 +1,38 @@
+# Built output
+/build
+app/build
+
+# Gradle
+.gradle
+gradle/wrapper/gradle-wrapper.jar
+
+# Local config — never commit (contains SDK path)
+local.properties
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+.idea/caches/
+.idea/libraries/
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+# Kotlin incremental compilation cache
+.kotlin/
+
+# Native build
+.externalNativeBuild/
+.cxx/
+
+# Captures (profiler, logcat, etc.)
+/captures
+
+# macOS
+.DS_Store
+
+# Keystore / signing — never commit credentials
+*.jks
+*.keystore
+keystore.properties
