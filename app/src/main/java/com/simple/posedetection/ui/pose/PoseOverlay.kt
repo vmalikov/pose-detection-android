@@ -5,7 +5,12 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -13,16 +18,21 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.simple.posedetection.detector.Keypoint
 import com.simple.posedetection.detector.PoseResult
 import com.simple.posedetection.detector.SkeletonConnections
+import com.simple.posedetection.device.DeviceCapabilities
 
 @Composable
 fun PoseOverlay(
     modifier: Modifier,
     bitmap: Bitmap,
     poseResult: PoseResult?,
+    inferenceTimeMs: Long = 0L,
+    capabilities: DeviceCapabilities? = null,
     confidenceThreshold: Float = 0.3f
 ) {
     Box(modifier = modifier) {
@@ -38,6 +48,45 @@ fun PoseOverlay(
                 drawSkeleton(poseResult, bitmap.width, bitmap.height, confidenceThreshold)
             }
         }
+
+        // Performance HUD — top-left corner
+        if (inferenceTimeMs > 0 && capabilities != null) {
+            PerformanceHud(
+                inferenceTimeMs = inferenceTimeMs,
+                capabilities = capabilities,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PerformanceHud(
+    inferenceTimeMs: Long,
+    capabilities: DeviceCapabilities,
+    modifier: Modifier = Modifier
+) {
+    val backend = if (capabilities.hasGpu) "GPU" else "CPU ×${capabilities.optimalThreadCount}"
+    val fps = if (inferenceTimeMs > 0) 1000f / inferenceTimeMs else 0f
+    val hudColor = when {
+        inferenceTimeMs < 33  -> Color(0xFF00E676)   // green  — 30fps capable
+        inferenceTimeMs < 66  -> Color(0xFFFFD740)   // amber  — 15fps range
+        else                  -> Color(0xFFFF5252)   // red    — too slow for live use
+    }
+
+    Surface(
+        color = Color.Black.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Text(
+            text = "$inferenceTimeMs ms  |  ${"%.1f".format(fps)} fps  |  $backend",
+            color = hudColor,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            modifier = modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
     }
 }
 

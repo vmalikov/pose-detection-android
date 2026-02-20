@@ -37,10 +37,12 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var poseResult by remember { mutableStateOf<PoseResult?>(null) }
+            var inferenceTimeMs by remember { mutableStateOf(0L) }
 
             LaunchedEffect(Unit) {
                 withContext(Dispatchers.Default) {
                     poseResult = detector.detect(testBitmap)
+                    inferenceTimeMs = detector.lastInferenceTimeMs
                 }
             }
 
@@ -55,7 +57,9 @@ class MainActivity : ComponentActivity() {
                         PoseOverlay(
                             modifier = Modifier.fillMaxSize(),
                             bitmap = testBitmap,
-                            poseResult = poseResult
+                            poseResult = poseResult,
+                            inferenceTimeMs = inferenceTimeMs,
+                            capabilities = detector.capabilities,
                         )
 
                         // Show a loading indicator until inference completes

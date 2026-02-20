@@ -9,8 +9,7 @@ lifecycleRuntimeKtx = "2.10.0"
 activityCompose = "1.12.3"
 kotlin = "2.0.21"
 composeBom = "2024.09.00"
-tensorflowLiteVersion = "2.16.1"
-tensorflowLiteGpuVersion = "2.16.1"
+liteRt = "1.4.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -28,8 +27,8 @@ androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "u
 androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
-tensorflow-lite = { module = "org.tensorflow:tensorflow-lite", version.ref = "tensorflowLiteVersion" }
-tensorflow-lite-gpu = { module = "org.tensorflow:tensorflow-lite-gpu", version.ref = "tensorflowLiteGpuVersion" }
+litert = { module = "com.google.ai.edge.litert:litert", version.ref = "liteRt" }
+litert-gpu = { module = "com.google.ai.edge.litert:litert-gpu", version.ref = "liteRt" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -4,17 +4,28 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.os.SystemClock
+import android.util.Log
 import org.tensorflow.lite.Interpreter
+import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
+import com.simple.posedetection.device.DeviceCapabilityDetector
 
 class PoseDetector(context: Context) {
 
     private val interpreter: Interpreter
+    private var gpuDelegate: GpuDelegate? = null
+
+    // Stores timing from the last inference call - read this from UI
+    var lastInferenceTimeMs: Long = 0L
+        private set
+
+    val capabilities = DeviceCapabilityDetector.detect()
 
     // MoveNet Lightning expects exactly 192x192 input
     // Thunder expects 256x256
@@ -22,12 +33,28 @@ class PoseDetector(context: Context) {
 
     init {
         val modelFile = loadModelFile(context, "movenet-singlepose-lightning -4.tflite")
-        val options = Interpreter.Options().apply {
-            // Start with 2 threads on CPU - safe default for any device
-            // Can add GPU delegate here later
-            numThreads = 2
-        }
+        val options = buildInterpreterOptions()
         interpreter = Interpreter(modelFile, options)
+        Log.d("PoseDetector", buildCapabilityReport())
+    }
+
+    private fun buildInterpreterOptions(): Interpreter.Options = Interpreter.Options().apply {
+        if (capabilities.hasGpu) {
+            try {
+                gpuDelegate = GpuDelegate()
+                addDelegate(gpuDelegate!!)
+                // GPU handles its own parallelism — numThreads has no effect here
+                Log.d("PoseDetector", "Interpreter: GPU delegate active")
+                return@apply
+            } catch (t: Throwable) {
+                // Probe passed but delegate creation failed at interpreter time.
+                // Rare, but possible if driver state changed (e.g. thermal throttle, reboot).
+                Log.w("PoseDetector", "GPU delegate failed at interpreter init, falling back to CPU: ${t.message}")
+                gpuDelegate = null
+            }
+        }
+        numThreads = capabilities.optimalThreadCount
+        Log.d("PoseDetector", "Interpreter: CPU ×${capabilities.optimalThreadCount} threads")
     }
 
     private fun loadModelFile(context: Context, filename: String): ByteBuffer {
@@ -62,8 +89,15 @@ class PoseDetector(context: Context) {
         // Step 3: Prepare output — MoveNet output shape [1, 1, 17, 3]
         val outputBuffer = Array(1) { Array(1) { Array(17) { FloatArray(3) } } }
 
+        // Measure just the inference itself, not preprocessing
+        // You want this number specifically — preprocessing time is
+        // a separate optimization concern from model performance
+        val startTime = SystemClock.elapsedRealtimeNanos()
+
         // Step 4: Run inference
         interpreter.run(inputBuffer, outputBuffer)
+
+        lastInferenceTimeMs = (SystemClock.elapsedRealtimeNanos() - startTime) / 1_000_000
 
         // Step 5: Parse and remap coordinates back to the original (un-padded) image space
         return parseOutput(outputBuffer, padX, padY)
@@ -87,6 +121,11 @@ class PoseDetector(context: Context) {
         return Triple(padded, padX, padY)
     }
 
+    fun close() {
+        interpreter.close()
+        gpuDelegate?.close()
+    }
+
     private fun parseOutput(
         raw: Array<Array<Array<FloatArray>>>,
         padX: Float,
@@ -107,7 +146,13 @@ class PoseDetector(context: Context) {
         return PoseResult(keypoints = keypoints)
     }
 
-    fun close() {
-        interpreter.close()
+    private fun buildCapabilityReport(): String {
+        return """
+            |=== PoseDetector Capabilities ===
+            |Performance tier : ${capabilities.performanceTier}
+            |GPU delegate      : ${capabilities.hasGpu}
+            |CPU threads       : ${capabilities.optimalThreadCount}
+            |=================================
+        """.trimMargin()
     }
 }

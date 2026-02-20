@@ -63,9 +63,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    // TensorFlow Lite
-    implementation(libs.tensorflow.lite)
-    implementation(libs.tensorflow.lite.gpu)
+    // LiteRT (Google's rebranded TFLite — same API, properly packaged GPU delegate)
+    implementation(libs.litert)
+    implementation(libs.litert.gpu)
 
 
     implementation(libs.coil.compose)
