@@ -1,0 +1,17 @@
+# Default: normalize all text files to LF in the repo
+* text=auto eol=lf
+
+# Windows batch files must stay CRLF — cmd.exe won't run them otherwise
+*.bat text eol=crlf
+
+# Binary files — no line ending conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.tflite binary
+*.jks binary
+*.keystore binary
+gradlew.bat text eol=crlf
