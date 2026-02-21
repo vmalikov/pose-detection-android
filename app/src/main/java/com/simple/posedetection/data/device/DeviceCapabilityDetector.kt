@@ -1,4 +1,4 @@
-package com.simple.posedetection.device
+package com.simple.posedetection.data.device
 
 import android.util.Log
 import org.tensorflow.lite.gpu.CompatibilityList

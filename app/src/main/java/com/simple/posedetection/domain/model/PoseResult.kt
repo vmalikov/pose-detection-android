@@ -1,4 +1,4 @@
-package com.simple.posedetection.detector
+package com.simple.posedetection.domain.model
 
 
 // Each detected joint with normalized coordinates (0.0 to 1.0)

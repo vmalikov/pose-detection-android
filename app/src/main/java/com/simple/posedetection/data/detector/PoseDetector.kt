@@ -1,4 +1,4 @@
-package com.simple.posedetection.detector
+package com.simple.posedetection.data.detector
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -6,15 +6,18 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.os.SystemClock
 import android.util.Log
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.scale
+import com.simple.posedetection.data.device.DeviceCapabilityDetector
+import com.simple.posedetection.domain.model.BodyPart
+import com.simple.posedetection.domain.model.Keypoint
+import com.simple.posedetection.domain.model.PoseResult
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.scale
-import com.simple.posedetection.device.DeviceCapabilityDetector
 
 class PoseDetector(context: Context) {
 
@@ -32,10 +35,14 @@ class PoseDetector(context: Context) {
     private val MODEL_INPUT_SIZE = 192
 
     init {
+        Log.d("PoseDetector", "init: capabilities probed — hasGpu=${capabilities.hasGpu}, threads=${capabilities.optimalThreadCount}, thread=${Thread.currentThread().name}")
+        Log.d("PoseDetector", "init: loading model file...")
         val modelFile = loadModelFile(context, "movenet-singlepose-lightning -4.tflite")
+        Log.d("PoseDetector", "init: model loaded (${modelFile.limit()} bytes), building interpreter options...")
         val options = buildInterpreterOptions()
+        Log.d("PoseDetector", "init: creating Interpreter...")
         interpreter = Interpreter(modelFile, options)
-        Log.d("PoseDetector", buildCapabilityReport())
+        Log.d("PoseDetector", "init: complete. ${buildCapabilityReport()}")
     }
 
     private fun buildInterpreterOptions(): Interpreter.Options = Interpreter.Options().apply {

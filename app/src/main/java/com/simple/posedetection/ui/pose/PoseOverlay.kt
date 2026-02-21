@@ -1,8 +1,6 @@
 package com.simple.posedetection.ui.pose
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -15,37 +13,27 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simple.posedetection.detector.Keypoint
-import com.simple.posedetection.detector.PoseResult
-import com.simple.posedetection.detector.SkeletonConnections
-import com.simple.posedetection.device.DeviceCapabilities
+import com.simple.posedetection.data.device.DeviceCapabilities
+import com.simple.posedetection.domain.model.Keypoint
+import com.simple.posedetection.domain.model.PoseResult
+import com.simple.posedetection.domain.model.SkeletonConnections
 
 @Composable
 fun PoseOverlay(
     modifier: Modifier,
-    bitmap: Bitmap,
     poseResult: PoseResult?,
     inferenceTimeMs: Long = 0L,
     capabilities: DeviceCapabilities? = null,
     confidenceThreshold: Float = 0.3f
 ) {
     Box(modifier = modifier) {
-        Image(
-            modifier = Modifier.fillMaxSize(),
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = "Pose detection source",
-            contentScale = ContentScale.Fit,
-        )
-
         if (poseResult != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawSkeleton(poseResult, bitmap.width, bitmap.height, confidenceThreshold)
+                drawSkeleton(poseResult, size.width.toInt(), size.height.toInt(), confidenceThreshold)
             }
         }
 
