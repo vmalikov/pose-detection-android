@@ -26,6 +26,10 @@ import com.simple.posedetection.domain.model.SkeletonConnections
 fun PoseOverlay(
     modifier: Modifier,
     poseResult: PoseResult?,
+    // Display-space frame dimensions (after rotation applied).
+    // Required to correctly remap keypoints when PreviewView uses FILL_CENTER (crop).
+    frameWidth: Int = 0,
+    frameHeight: Int = 0,
     inferenceTimeMs: Long = 0L,
     capabilities: DeviceCapabilities? = null,
     confidenceThreshold: Float = 0.3f
@@ -33,7 +37,7 @@ fun PoseOverlay(
     Box(modifier = modifier) {
         if (poseResult != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawSkeleton(poseResult, size.width.toInt(), size.height.toInt(), confidenceThreshold)
+                drawSkeleton(poseResult, frameWidth, frameHeight, confidenceThreshold)
             }
         }
 
@@ -87,31 +91,39 @@ private fun DrawScope.drawSkeleton(
     val lineColor = Color(0xFF00E5FF)
     val pointColor = Color(0xFFFF4081)
 
-    // ContentScale.Fit centers the image and preserves aspect ratio — it does NOT fill the
-    // canvas. Calculate the actual image rect so keypoints land on the image, not the bars.
-    val imageAspect = imageWidth.toFloat() / imageHeight
-    val canvasAspect = size.width / size.height
-
-    val drawWidth: Float
-    val drawHeight: Float
-    val offsetX: Float
-    val offsetY: Float
-
-    if (imageAspect > canvasAspect) {
-        // Image is wider than the canvas → fits width, bars on top/bottom
-        drawWidth = size.width
-        drawHeight = size.width / imageAspect
-        offsetX = 0f
-        offsetY = (size.height - drawHeight) / 2f
-    } else {
-        // Image is taller than the canvas → fits height, bars on left/right
-        drawHeight = size.height
-        drawWidth = size.height * imageAspect
-        offsetX = (size.width - drawWidth) / 2f
-        offsetY = 0f
+    // PreviewView uses FILL_CENTER (ContentScale.Crop): the frame is scaled to fill the canvas
+    // and the excess dimension is cropped symmetrically from both sides.
+    //
+    // Keypoints are in full-frame normalized [0,1] space. We need to remap them to the
+    // visible cropped portion that actually appears on screen.
+    //
+    //   frameAspect > canvasAspect → frame is "wider" → scale by canvas height, crop L/R sides
+    //   frameAspect < canvasAspect → frame is "taller" → scale by canvas width, crop T/B sides
+    fun Keypoint.toOffset(): Offset {
+        if (imageWidth <= 0 || imageHeight <= 0) {
+            // No frame dimensions available — fall back to 1:1 mapping
+            return Offset(x * size.width, y * size.height)
+        }
+        val frameAspect = imageWidth.toFloat() / imageHeight
+        val canvasAspect = size.width / size.height
+        return if (frameAspect > canvasAspect) {
+            // Crop left/right: visible x fraction of the full frame width
+            val visibleW = canvasAspect / frameAspect
+            val x0 = (1f - visibleW) / 2f
+            Offset(
+                x = ((x - x0) / visibleW * size.width).coerceIn(0f, size.width),
+                y = y * size.height
+            )
+        } else {
+            // Crop top/bottom: visible y fraction of the full frame height
+            val visibleH = frameAspect / canvasAspect
+            val y0 = (1f - visibleH) / 2f
+            Offset(
+                x = x * size.width,
+                y = ((y - y0) / visibleH * size.height).coerceIn(0f, size.height)
+            )
+        }
     }
-
-    fun Keypoint.toOffset() = Offset(offsetX + x * drawWidth, offsetY + y * drawHeight)
 
     // Draw lines first so keypoint dots render on top
     SkeletonConnections.connections.forEach { (startPart, endPart) ->

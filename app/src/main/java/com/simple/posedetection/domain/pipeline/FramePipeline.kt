@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.withContext
@@ -25,6 +26,9 @@ class FramePipeline(
     private val scope = CoroutineScope(dispatcher + SupervisorJob())
 
     val results: Flow<PoseFrameResult> = frameSource.frames
+        // Keep only the latest frame — drops buffered frames when inference is slower than
+        // the camera frame rate, preventing the skeleton from lagging behind a moving camera.
+        .conflate()
         .mapNotNull { frame ->
             // Run inference on the Default dispatcher — scope runs on Main for CameraX,
             // so we explicitly switch here for the CPU/GPU-bound inference work.

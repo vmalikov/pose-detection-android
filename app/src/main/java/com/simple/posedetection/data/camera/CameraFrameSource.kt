@@ -38,7 +38,8 @@ class CameraFrameSource(
 
         // -- Analysis use case ---
         val imageAnalysis = ImageAnalysis.Builder()
-            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+//            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
+            .setTargetResolution(targetResolution)
             .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
             // YUV_420_888 is the fastest path for bitmap conversion on most devices
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
