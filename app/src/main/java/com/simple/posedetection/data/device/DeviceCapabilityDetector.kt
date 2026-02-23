@@ -61,7 +61,7 @@ object DeviceCapabilityDetector {
         return when (Runtime.getRuntime().availableProcessors()) {
             in 8..Int.MAX_VALUE -> 4
             in 4..7             -> 2
-            else                -> 1
+            else                      -> 1
         }
     }
 

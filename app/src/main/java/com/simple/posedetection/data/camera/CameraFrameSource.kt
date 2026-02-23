@@ -2,7 +2,6 @@ package com.simple.posedetection.data.camera
 
 import android.content.Context
 import android.util.Size
-import androidx.camera.core.AspectRatio
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST

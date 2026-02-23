@@ -30,14 +30,17 @@ class PoseDetector(context: Context) {
 
     val capabilities = DeviceCapabilityDetector.detect()
 
-    // MoveNet Lightning expects exactly 192x192 input
-    // Thunder expects 256x256
-    private val MODEL_INPUT_SIZE = 192
+    companion object {
+        // MoveNet Lightning expects exactly 192x192 input
+        // Thunder expects 256x256
+        private val MODEL_INPUT_SIZE = 192
+        private const val MODEL_NAME = "movenet-singlepose-lightning -4.tflite"
+    }
 
     init {
         Log.d("PoseDetector", "init: capabilities probed — hasGpu=${capabilities.hasGpu}, threads=${capabilities.optimalThreadCount}, thread=${Thread.currentThread().name}")
         Log.d("PoseDetector", "init: loading model file...")
-        val modelFile = loadModelFile(context, "movenet-singlepose-lightning -4.tflite")
+        val modelFile = loadModelFile(context, MODEL_NAME)
         Log.d("PoseDetector", "init: model loaded (${modelFile.limit()} bytes), building interpreter options...")
         val options = buildInterpreterOptions()
         Log.d("PoseDetector", "init: creating Interpreter...")

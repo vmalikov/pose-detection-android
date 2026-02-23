@@ -50,21 +50,19 @@ fun CameraScreen(modifier: Modifier = Modifier) {
             }
 
             is PoseUiState.Active -> {
-                viewModel.capabilities?.let { caps ->
-                    // The stored bitmap is in raw sensor orientation; swap w/h when rotated 90°/270°
-                    val bmp = state.result.frame.bitmap
-                    val rotDeg = state.result.frame.rotationDegrees
-                    val frameW = if (rotDeg % 180 != 0) bmp.height else bmp.width
-                    val frameH = if (rotDeg % 180 != 0) bmp.width else bmp.height
-                    PoseOverlay(
-                        modifier = Modifier.fillMaxSize(),
-                        poseResult = state.result.pose,
-                        frameWidth = frameW,
-                        frameHeight = frameH,
-                        inferenceTimeMs = state.result.inferenceTimeMs,
-                        capabilities = caps,
-                    )
-                }
+                // The stored bitmap is in raw sensor orientation; swap w/h when rotated 90°/270°
+                val bmp = state.result.frame.bitmap
+                val rotDeg = state.result.frame.rotationDegrees
+                val frameW = if (rotDeg % 180 != 0) bmp.height else bmp.width
+                val frameH = if (rotDeg % 180 != 0) bmp.width else bmp.height
+                PoseOverlay(
+                    modifier = Modifier.fillMaxSize(),
+                    poseResult = state.result.pose,
+                    frameWidth = frameW,
+                    frameHeight = frameH,
+                    inferenceTimeMs = state.result.inferenceTimeMs,
+                    capabilities = viewModel.capabilities,
+                )
             }
 
             is PoseUiState.Error -> {
