@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.simple.posedetection.domain.model.BodyPart
 import com.simple.posedetection.domain.model.DeviceCapabilities
 import com.simple.posedetection.domain.model.Keypoint
 import com.simple.posedetection.domain.model.PoseResult
@@ -25,18 +26,18 @@ import com.simple.posedetection.domain.model.PoseResult
 fun PoseOverlay(
     modifier: Modifier,
     poseResult: PoseResult?,
-    // Display-space frame dimensions (after rotation applied).
-    // Required to correctly remap keypoints when PreviewView uses FILL_CENTER (crop).
     frameWidth: Int = 0,
     frameHeight: Int = 0,
     inferenceTimeMs: Long = 0L,
     capabilities: DeviceCapabilities? = null,
-    confidenceThreshold: Float = 0.3f
+    confidenceThreshold: Float = 0.3f,
+    /** Joints to draw in red (e.g. when a validator fails). */
+    highlightParts: Set<BodyPart> = emptySet()
 ) {
     Box(modifier = modifier) {
         if (poseResult != null) {
             Canvas(modifier = Modifier.fillMaxSize()) {
-                drawSkeleton(poseResult, frameWidth, frameHeight, confidenceThreshold)
+                drawSkeleton(poseResult, frameWidth, frameHeight, confidenceThreshold, highlightParts)
             }
         }
 
@@ -85,10 +86,12 @@ private fun DrawScope.drawSkeleton(
     poseResult: PoseResult,
     imageWidth: Int,
     imageHeight: Int,
-    confidenceThreshold: Float
+    confidenceThreshold: Float,
+    highlightParts: Set<BodyPart> = emptySet()
 ) {
     val lineColor = Color(0xFF00E5FF)
     val pointColor = Color(0xFFFF4081)
+    val highlightColor = Color(0xFFFF5252)
 
     // PreviewView uses FILL_CENTER (ContentScale.Crop): the frame is scaled to fill the canvas
     // and the excess dimension is cropped symmetrically from both sides.
@@ -143,11 +146,13 @@ private fun DrawScope.drawSkeleton(
     }
 
     // Draw keypoint circles on top of lines
-    poseResult.keypoints.values.forEach { keypoint ->
+    poseResult.keypoints.forEach { (part, keypoint) ->
         if (keypoint.score > confidenceThreshold) {
             val center = keypoint.toOffset()
+            val isHighlight = part in highlightParts
+            val fill = if (isHighlight) highlightColor else pointColor
             drawCircle(color = lineColor.copy(alpha = 0.4f), radius = 8.dp.toPx(), center = center)
-            drawCircle(color = pointColor, radius = 5.dp.toPx(), center = center)
+            drawCircle(color = fill, radius = 5.dp.toPx(), center = center)
         }
     }
 }
