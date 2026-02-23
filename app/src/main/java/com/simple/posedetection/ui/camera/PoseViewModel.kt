@@ -1,15 +1,17 @@
 package com.simple.posedetection.ui.camera
 
-import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.camera.core.Preview
-import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.simple.posedetection.data.camera.CameraFrameSource
 import com.simple.posedetection.data.detector.PoseDetector
 import com.simple.posedetection.domain.model.PoseFrameResult
 import com.simple.posedetection.domain.pipeline.FramePipeline
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -18,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 private const val TAG = "PoseViewModel"
 
@@ -27,7 +30,13 @@ sealed class PoseUiState {
     data class Error(val message: String) : PoseUiState()
 }
 
-class PoseViewModel(application: Application) : AndroidViewModel(application) {
+@HiltViewModel
+class PoseViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
+    // dagger.Lazy defers PoseDetector construction to first .get() call.
+    // We call it from Dispatchers.Default so the expensive GPU init never blocks Main.
+    private val detectorLazy: dagger.Lazy<PoseDetector>
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<PoseUiState>(PoseUiState.Initializing)
     val uiState: StateFlow<PoseUiState> = _uiState.asStateFlow()
@@ -42,7 +51,7 @@ class PoseViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.Default) {
             Log.d(TAG, "Detector init started on ${Thread.currentThread().name}")
             try {
-                val det = PoseDetector(getApplication())
+                val det = detectorLazy.get()
                 detector = det
                 detectorReady.complete(det)
                 Log.d(TAG, "Detector ready: gpu=${det.capabilities.hasGpu}, threads=${det.capabilities.optimalThreadCount}")
@@ -62,10 +71,8 @@ class PoseViewModel(application: Application) : AndroidViewModel(application) {
                 val det = detectorReady.await()
                 Log.d(TAG, "startCamera: detector ready, starting pipeline...")
 
-                // CameraFrameSource owns all camera binding (Preview + Analysis).
-                // Do NOT bind anything here separately — that would cause double-binding.
                 val source = CameraFrameSource(
-                    context = getApplication(),
+                    context = context,
                     lifecycleOwner = lifecycleOwner,
                     previewSurfaceProvider = surfaceProvider
                 )
@@ -76,7 +83,7 @@ class PoseViewModel(application: Application) : AndroidViewModel(application) {
                     _uiState.value = PoseUiState.Active(result)
                 }
             } catch (t: Throwable) {
-                if (t is CancellationException) throw t  // must not swallow cancellation
+                if (t is CancellationException) throw t
                 Log.e(TAG, "startCamera error: ${t.javaClass.simpleName}: ${t.message}", t)
                 _uiState.value = PoseUiState.Error("${t.javaClass.simpleName}: ${t.message}")
             }

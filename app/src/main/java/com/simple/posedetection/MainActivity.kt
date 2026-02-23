@@ -3,6 +3,7 @@ package com.simple.posedetection
 import android.Manifest
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import dagger.hilt.android.AndroidEntryPoint
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import com.simple.posedetection.ui.camera.CameraScreen
 import com.simple.posedetection.ui.theme.PoseDetectionTheme
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     private var cameraPermissionGranted by mutableStateOf(false)
