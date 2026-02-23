@@ -1,18 +1,12 @@
 package com.simple.posedetection.data.device
 
 import android.util.Log
+import com.simple.posedetection.domain.model.DeviceCapabilities
+import com.simple.posedetection.domain.model.PerformanceTier
 import org.tensorflow.lite.gpu.CompatibilityList
 import org.tensorflow.lite.gpu.GpuDelegate
 
 private const val TAG = "DeviceCapability"
-
-data class DeviceCapabilities(
-    val hasGpu: Boolean,
-    val optimalThreadCount: Int,
-    val performanceTier: PerformanceTier
-)
-
-enum class PerformanceTier { HIGH, MID, LOW }
 
 object DeviceCapabilityDetector {
 
@@ -30,7 +24,7 @@ object DeviceCapabilityDetector {
     //   1. CompatibilityList.isDelegateSupportedOnThisDevice — fast driver query that
     //      catches unsupported hardware without allocating anything heavy.
     //   2. Actually create + immediately close a GpuDelegate — flushes out drivers
-    //      that report support but crash on real allocation (common on some Mali/Adreno
+    //      that report support but crash on real allocation (common on some Mali/3Adreno
     //      combinations on older firmware).
     //
     // The entire block catches Throwable, not just Exception, because a missing

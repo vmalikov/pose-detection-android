@@ -1,20 +1,24 @@
 package com.simple.posedetection.ui.camera
 
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.simple.posedetection.ui.pose.PoseOverlay
 
 @Composable
@@ -23,23 +27,21 @@ fun CameraScreen(modifier: Modifier = Modifier) {
     val viewModel: PoseViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val ctx = LocalContext.current
+    val previewView = remember {
+        PreviewView(ctx).apply {
+            layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+
+    LaunchedEffect(lifecycleOwner) {
+        viewModel.startCamera(lifecycleOwner, previewView.surfaceProvider)
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
 
-        // PreviewView is created inside factory so it gets proper layout params.
-        // Without MATCH_PARENT the view may measure to 0×0.
-        AndroidView(
-            factory = { ctx ->
-                PreviewView(ctx).apply {
-                    layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
-                    )
-                    scaleType = PreviewView.ScaleType.FILL_CENTER
-                    viewModel.startCamera(lifecycleOwner, surfaceProvider)
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        )
+        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
         when (val state = uiState) {
             is PoseUiState.Initializing -> {
@@ -50,18 +52,14 @@ fun CameraScreen(modifier: Modifier = Modifier) {
             }
 
             is PoseUiState.Active -> {
-                // The stored bitmap is in raw sensor orientation; swap w/h when rotated 90°/270°
-                val bmp = state.result.frame.bitmap
-                val rotDeg = state.result.frame.rotationDegrees
-                val frameW = if (rotDeg % 180 != 0) bmp.height else bmp.width
-                val frameH = if (rotDeg % 180 != 0) bmp.width else bmp.height
+                // Bitmap is pre-rotated in CameraFrameSource — use dimensions directly
                 PoseOverlay(
                     modifier = Modifier.fillMaxSize(),
-                    poseResult = state.result.pose,
-                    frameWidth = frameW,
-                    frameHeight = frameH,
-                    inferenceTimeMs = state.result.inferenceTimeMs,
-                    capabilities = viewModel.capabilities,
+                    poseResult = state.pose,
+                    frameWidth = state.frameWidth,
+                    frameHeight = state.frameHeight,
+                    inferenceTimeMs = state.inferenceTimeMs,
+                    capabilities = state.capabilities,
                 )
             }
 

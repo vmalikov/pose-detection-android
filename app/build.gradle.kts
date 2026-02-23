@@ -78,8 +78,6 @@ dependencies {
     implementation(libs.litert)
     implementation(libs.litert.gpu)
 
-    implementation(libs.coil.compose)
-
     // Hilt DI
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)

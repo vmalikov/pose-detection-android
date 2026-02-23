@@ -1,6 +1,8 @@
 package com.simple.posedetection.data.camera
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.util.Size
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -11,6 +13,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.lifecycle.LifecycleOwner
 import com.simple.posedetection.domain.model.VideoFrame
 import com.simple.posedetection.domain.port.FrameSource
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -18,13 +24,24 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Executors
 
-class CameraFrameSource(
-    private val context: Context,
-    private val lifecycleOwner: LifecycleOwner,
-    private val cameraSelector: CameraSelector = CameraSelector.DEFAULT_BACK_CAMERA,
-    private val targetResolution: Size = Size(480, 640),
-    private val previewSurfaceProvider: Preview.SurfaceProvider? = null
+class CameraFrameSource @AssistedInject constructor(
+    @ApplicationContext private val context: Context,
+    @Assisted private val lifecycleOwner: LifecycleOwner,
+    @Assisted private val previewSurfaceProvider: Preview.SurfaceProvider
 ) : FrameSource {
+
+    @AssistedFactory
+    interface Factory {
+        fun create(
+            lifecycleOwner: LifecycleOwner,
+            previewSurfaceProvider: Preview.SurfaceProvider
+        ): CameraFrameSource
+    }
+
+    private companion object {
+        val CAMERA_SELECTOR = CameraSelector.DEFAULT_BACK_CAMERA
+        val TARGET_RESOLUTION = Size(480, 640)
+    }
 
     private val analysisExecutor = Executors.newSingleThreadExecutor()
 
@@ -35,10 +52,9 @@ class CameraFrameSource(
             ProcessCameraProvider.getInstance(context).get()
         }
 
-        // -- Analysis use case ---
+        // --- Analysis use case ---
         val imageAnalysis = ImageAnalysis.Builder()
-//            .setTargetAspectRatio(AspectRatio.RATIO_4_3)
-            .setTargetResolution(targetResolution)
+            .setTargetResolution(TARGET_RESOLUTION)
             .setBackpressureStrategy(STRATEGY_KEEP_ONLY_LATEST)
             // YUV_420_888 is the fastest path for bitmap conversion on most devices
             .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
@@ -54,14 +70,9 @@ class CameraFrameSource(
                 }
             }
 
-        // --- optional preview use case ---
-        val useCases = buildList {
-            if (previewSurfaceProvider != null) {
-                add(Preview.Builder().build().also {
-                    it.surfaceProvider = previewSurfaceProvider
-                })
-            }
-            add(imageAnalysis)
+        // --- Preview use case ---
+        val preview = Preview.Builder().build().also {
+            it.surfaceProvider = previewSurfaceProvider
         }
 
         // callbackFlow runs on Main (FramePipeline.scope uses Dispatchers.Main),
@@ -69,8 +80,9 @@ class CameraFrameSource(
         cameraProvider.unbindAll()
         cameraProvider.bindToLifecycle(
             lifecycleOwner,
-            cameraSelector,
-            *useCases.toTypedArray()
+            CAMERA_SELECTOR,
+            preview,
+            imageAnalysis
         )
 
         // When the collector cancels, release everything.
@@ -84,22 +96,13 @@ class CameraFrameSource(
     // ── Extension: ImageProxy → VideoFrame ────────────────────────────────────
 
     private fun ImageProxy.toVideoFrame(): VideoFrame {
-        val bitmap = toBitmapSafe()
-        return VideoFrame(
-            bitmap = bitmap,
-            timestampMs = System.currentTimeMillis(),
-            rotationDegrees = imageInfo.rotationDegrees
-        )
-    }
-
-    /**
-     * Converts YUV_420_888 ImageProxy to an ARGB_8888 Bitmap.
-     *
-     * Using [ImageProxy.toBitmap] (CameraX 1.3+) is the simplest path.
-     * For older CameraX or finer control over the conversion you can do the
-     * YUV→RGB math manually, but in practice toBitmap() is well-optimised.
-     */
-    private fun ImageProxy.toBitmapSafe(): android.graphics.Bitmap {
-        return toBitmap()
+        val degrees = imageInfo.rotationDegrees
+        val raw = toBitmap()
+        val rotated = if (degrees != 0) {
+            val matrix = Matrix().apply { postRotate(degrees.toFloat()) }
+            Bitmap.createBitmap(raw, 0, 0, raw.width, raw.height, matrix, true)
+                .also { raw.recycle() }
+        } else raw
+        return VideoFrame(bitmap = rotated, timestampMs = System.currentTimeMillis())
     }
 }

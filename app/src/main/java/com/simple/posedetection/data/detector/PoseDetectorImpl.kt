@@ -4,14 +4,14 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.os.SystemClock
 import android.util.Log
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.scale
-import com.simple.posedetection.data.device.DeviceCapabilityDetector
 import com.simple.posedetection.domain.model.BodyPart
+import com.simple.posedetection.domain.model.DeviceCapabilities
 import com.simple.posedetection.domain.model.Keypoint
 import com.simple.posedetection.domain.model.PoseResult
+import com.simple.posedetection.domain.port.PoseDetector
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.gpu.GpuDelegate
 import java.io.FileInputStream
@@ -19,29 +19,36 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
 
-class PoseDetector(context: Context) {
+class PoseDetectorImpl(
+    context: Context, override val capabilities: DeviceCapabilities
+) : PoseDetector {
 
     private val interpreter: Interpreter
     private var gpuDelegate: GpuDelegate? = null
 
-    // Stores timing from the last inference call - read this from UI
-    var lastInferenceTimeMs: Long = 0L
-        private set
-
-    val capabilities = DeviceCapabilityDetector.detect()
-
-    companion object {
+    private companion object {
         // MoveNet Lightning expects exactly 192x192 input
         // Thunder expects 256x256
-        private val MODEL_INPUT_SIZE = 192
-        private const val MODEL_NAME = "movenet-singlepose-lightning -4.tflite"
+        private const val MODEL_INPUT_SIZE = 192
+        private const val MODEL_NAME = "movenet-singlepose-lightning-4.tflite"
     }
 
+    // Pre-allocated — avoids ~110KB per-frame heap churn at 30fps
+    private val inputBuffer = ByteBuffer.allocateDirect(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE * 3)
+        .apply { order(ByteOrder.nativeOrder()) }
+    private val pixels = IntArray(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE)
+
     init {
-        Log.d("PoseDetector", "init: capabilities probed — hasGpu=${capabilities.hasGpu}, threads=${capabilities.optimalThreadCount}, thread=${Thread.currentThread().name}")
+        Log.d(
+            "PoseDetector",
+            "init: capabilities probed — hasGpu=${capabilities.hasGpu}, threads=${capabilities.optimalThreadCount}, thread=${Thread.currentThread().name}"
+        )
         Log.d("PoseDetector", "init: loading model file...")
         val modelFile = loadModelFile(context, MODEL_NAME)
-        Log.d("PoseDetector", "init: model loaded (${modelFile.limit()} bytes), building interpreter options...")
+        Log.d(
+            "PoseDetector",
+            "init: model loaded (${modelFile.limit()} bytes), building interpreter options..."
+        )
         val options = buildInterpreterOptions()
         Log.d("PoseDetector", "init: creating Interpreter...")
         interpreter = Interpreter(modelFile, options)
@@ -59,7 +66,10 @@ class PoseDetector(context: Context) {
             } catch (t: Throwable) {
                 // Probe passed but delegate creation failed at interpreter time.
                 // Rare, but possible if driver state changed (e.g. thermal throttle, reboot).
-                Log.w("PoseDetector", "GPU delegate failed at interpreter init, falling back to CPU: ${t.message}")
+                Log.w(
+                    "PoseDetector",
+                    "GPU delegate failed at interpreter init, falling back to CPU: ${t.message}"
+                )
                 gpuDelegate = null
             }
         }
@@ -70,13 +80,12 @@ class PoseDetector(context: Context) {
     private fun loadModelFile(context: Context, filename: String): ByteBuffer {
         val fileDescriptor = context.assets.openFd(filename)
         return FileInputStream(fileDescriptor.fileDescriptor).channel.map(
-            FileChannel.MapMode.READ_ONLY,
-            fileDescriptor.startOffset,
-            fileDescriptor.declaredLength
+            FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength
         )
     }
 
-    fun detect(bitmap: Bitmap): PoseResult {
+    @Synchronized
+    override fun detect(bitmap: Bitmap): PoseResult {
         // Step 1: Letterbox the bitmap to a square before scaling.
         // Without this, a portrait/landscape bitmap gets squished into 192x192,
         // which distorts the image and hurts model accuracy.
@@ -84,10 +93,7 @@ class PoseDetector(context: Context) {
         val scaled = letterboxed.scale(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE)
 
         // Step 2: Pack pixels into a UINT8 ByteBuffer — [H, W, C] order
-        val inputBuffer = ByteBuffer.allocateDirect(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE * 3)
-        inputBuffer.order(ByteOrder.nativeOrder())
-
-        val pixels = IntArray(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE)
+        inputBuffer.rewind()
         scaled.getPixels(pixels, 0, MODEL_INPUT_SIZE, 0, 0, MODEL_INPUT_SIZE, MODEL_INPUT_SIZE)
         for (pixel in pixels) {
             inputBuffer.put(((pixel shr 16) and 0xFF).toByte()) // R
@@ -99,17 +105,14 @@ class PoseDetector(context: Context) {
         // Step 3: Prepare output — MoveNet output shape [1, 1, 17, 3]
         val outputBuffer = Array(1) { Array(1) { Array(17) { FloatArray(3) } } }
 
-        // Measure just the inference itself, not preprocessing
-        // You want this number specifically — preprocessing time is
-        // a separate optimization concern from model performance
-        val startTime = SystemClock.elapsedRealtimeNanos()
-
         // Step 4: Run inference
         interpreter.run(inputBuffer, outputBuffer)
 
-        lastInferenceTimeMs = (SystemClock.elapsedRealtimeNanos() - startTime) / 1_000_000
+        // Step 5: Release intermediate bitmaps
+        letterboxed.recycle()
+        scaled.recycle()
 
-        // Step 5: Parse and remap coordinates back to the original (un-padded) image space
+        // Step 6: Parse and remap coordinates back to the original (un-padded) image space
         return parseOutput(outputBuffer, padX, padY)
     }
 
@@ -131,15 +134,13 @@ class PoseDetector(context: Context) {
         return Triple(padded, padX, padY)
     }
 
-    fun close() {
+    override fun close() {
         interpreter.close()
         gpuDelegate?.close()
     }
 
     private fun parseOutput(
-        raw: Array<Array<Array<FloatArray>>>,
-        padX: Float,
-        padY: Float
+        raw: Array<Array<Array<FloatArray>>>, padX: Float, padY: Float
     ): PoseResult {
         val keypoints = mutableMapOf<BodyPart, Keypoint>()
 

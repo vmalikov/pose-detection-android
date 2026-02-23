@@ -17,10 +17,9 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.simple.posedetection.data.device.DeviceCapabilities
+import com.simple.posedetection.domain.model.DeviceCapabilities
 import com.simple.posedetection.domain.model.Keypoint
 import com.simple.posedetection.domain.model.PoseResult
-import com.simple.posedetection.domain.model.SkeletonConnections
 
 @Composable
 fun PoseOverlay(
@@ -146,16 +145,9 @@ private fun DrawScope.drawSkeleton(
     // Draw keypoint circles on top of lines
     poseResult.keypoints.values.forEach { keypoint ->
         if (keypoint.score > confidenceThreshold) {
-            drawCircle(
-                color = lineColor.copy(alpha = 0.4f),
-                radius = 8.dp.toPx(),
-                center = keypoint.toOffset()
-            )
-            drawCircle(
-                color = pointColor,
-                radius = 5.dp.toPx(),
-                center = keypoint.toOffset()
-            )
+            val center = keypoint.toOffset()
+            drawCircle(color = lineColor.copy(alpha = 0.4f), radius = 8.dp.toPx(), center = center)
+            drawCircle(color = pointColor, radius = 5.dp.toPx(), center = center)
         }
     }
 }
