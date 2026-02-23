@@ -6,8 +6,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.simple.posedetection.data.camera.CameraFrameSource
+import com.simple.posedetection.domain.exercise.ExerciseDefinition
 import com.simple.posedetection.domain.pipeline.FramePipeline
 import com.simple.posedetection.domain.port.PoseDetector
+import com.simple.posedetection.domain.processor.PoseProcessor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -25,9 +27,9 @@ private const val TAG = "PoseViewModel"
 @HiltViewModel
 class PoseViewModel @Inject constructor(
     private val cameraSourceFactory: CameraFrameSource.Factory,
-    // dagger.Lazy defers PoseDetector construction to first .get() call.
-    // We call it from Dispatchers.Default so the expensive GPU init never blocks Main.
-    private val detectorLazy: dagger.Lazy<PoseDetector>
+    private val detectorLazy: dagger.Lazy<PoseDetector>,
+    private val poseProcessor: PoseProcessor,
+    private val exerciseDefinition: ExerciseDefinition
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<PoseUiState>(PoseUiState.Initializing)
@@ -70,7 +72,7 @@ class PoseViewModel @Inject constructor(
                 Log.d(TAG, "startCamera: detector ready, starting pipeline...")
 
                 val source = cameraSourceFactory.create(lifecycleOwner, surfaceProvider)
-                pipeline = FramePipeline(source, det)
+                pipeline = FramePipeline(source, det, poseProcessor, exerciseDefinition)
 
                 Log.d(TAG, "startCamera: pipeline created, collecting results...")
                 pipeline?.results?.collect { result ->
@@ -79,7 +81,8 @@ class PoseViewModel @Inject constructor(
                         frameWidth = result.frame.bitmap.width,
                         frameHeight = result.frame.bitmap.height,
                         inferenceTimeMs = result.inferenceTimeMs,
-                        capabilities = det.capabilities
+                        capabilities = det.capabilities,
+                        exerciseResult = result.exerciseResult
                     )
                 }
             } catch (t: Throwable) {
