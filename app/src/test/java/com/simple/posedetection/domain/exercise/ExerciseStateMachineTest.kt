@@ -112,8 +112,6 @@ class ExerciseStateMachineTest {
         machine.update(fDesc)
         assertEquals(Phase.START, machine.currentState().currentPhase)
         machine.update(fDesc)
-        assertEquals(Phase.START, machine.currentState().currentPhase)
-        machine.update(fDesc)
         assertEquals(Phase.DESCENDING, machine.currentState().currentPhase)
     }
 
@@ -133,5 +131,25 @@ class ExerciseStateMachineTest {
         machine.update(fAvgAtDepth)
         machine.update(fAvgAtDepth)
         assertEquals(Phase.BOTTOM, machine.currentState().currentPhase)
+    }
+
+    @Test
+    fun update_minDepthAtBottomFalse_incrementsRepOnFullCycle() {
+        machine = ExerciseStateMachine(config(debounceFrames = 1, minDepthAtBottom = false))
+        val fStand = features(170f, 165f)
+        val fDesc = features(120f, 110f)
+        val fBottom = features(85f, 90f)
+        val fAsc = features(120f, 115f)
+        machine.update(fStand)
+        machine.update(fDesc)
+        machine.update(fDesc)
+        machine.update(fBottom)
+        machine.update(fBottom)
+        machine.update(fAsc)
+        machine.update(fAsc)
+        machine.update(fStand)
+        machine.update(fStand)
+        assertEquals(Phase.START, machine.currentState().currentPhase)
+        assertEquals(1, machine.currentState().repCount)
     }
 }

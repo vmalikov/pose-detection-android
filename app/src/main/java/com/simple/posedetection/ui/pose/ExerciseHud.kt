@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.simple.posedetection.domain.exercise.ValidationCode
 import com.simple.posedetection.domain.model.BodyPart
 import com.simple.posedetection.domain.model.ExerciseFrameResult
 
@@ -50,27 +51,28 @@ fun ExerciseHud(
 }
 
 /**
- * Maps invalid validation messages to body parts to highlight (e.g. in red on skeleton).
+ * Maps invalid validation results to body parts to highlight (e.g. in red on skeleton).
+ * Uses [ValidationResult.code] for stable mapping; falls back to message for legacy results without code.
  */
 fun invalidResultsToHighlightParts(validationResults: List<com.simple.posedetection.domain.exercise.ValidationResult>): Set<BodyPart> {
     val parts = mutableSetOf<BodyPart>()
     validationResults.filter { !it.isValid }.forEach { r ->
-        when (r.message) {
-            "Depth not reached" -> {
+        when (r.code) {
+            ValidationCode.DEPTH_NOT_REACHED -> {
                 parts.add(BodyPart.LEFT_KNEE)
                 parts.add(BodyPart.RIGHT_KNEE)
             }
-            "Keep torso upright" -> {
+            ValidationCode.TORSO_DEVIATION -> {
                 parts.add(BodyPart.LEFT_SHOULDER)
                 parts.add(BodyPart.RIGHT_SHOULDER)
                 parts.add(BodyPart.LEFT_HIP)
                 parts.add(BodyPart.RIGHT_HIP)
             }
-            "Knee over toe" -> {
+            ValidationCode.KNEE_OVER_TOE -> {
                 parts.add(BodyPart.LEFT_KNEE)
                 parts.add(BodyPart.RIGHT_KNEE)
             }
-            else -> {}
+            null -> {}
         }
     }
     return parts

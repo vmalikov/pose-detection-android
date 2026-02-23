@@ -38,7 +38,7 @@ fun createSquatDefinition(
     validators: List<Validator>
 ): ExerciseDefinition = ExerciseDefinition(
     name = "Squat",
-    phases = listOf(Phase.START, Phase.DESCENDING, Phase.BOTTOM, Phase.ASCENDING, Phase.END),
+    phases = listOf(Phase.START, Phase.DESCENDING, Phase.BOTTOM, Phase.ASCENDING),
     validators = validators,
     config = config
 )

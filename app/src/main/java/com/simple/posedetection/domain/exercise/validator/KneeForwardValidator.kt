@@ -3,6 +3,7 @@ package com.simple.posedetection.domain.exercise.validator
 import com.simple.posedetection.domain.exercise.ExerciseConfig
 import com.simple.posedetection.domain.exercise.Phase
 import com.simple.posedetection.domain.exercise.Severity
+import com.simple.posedetection.domain.exercise.ValidationCode
 import com.simple.posedetection.domain.exercise.ValidationResult
 import com.simple.posedetection.domain.exercise.Validator
 import com.simple.posedetection.domain.model.PoseFeatures
@@ -25,10 +26,11 @@ class KneeForwardValidator(
             ValidationResult(
                 isValid = false,
                 message = "Knee over toe",
-                severity = Severity.WARNING
+                severity = Severity.WARNING,
+                code = ValidationCode.KNEE_OVER_TOE
             )
         } else {
-            ValidationResult(isValid = true, message = null, severity = Severity.INFO)
+            ValidationResult(isValid = true, message = null, severity = Severity.INFO, code = null)
         }
     }
 }

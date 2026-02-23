@@ -1,14 +1,13 @@
 package com.simple.posedetection.domain.processor
 
 import com.simple.posedetection.domain.model.BodyPart
-import com.simple.posedetection.domain.model.Keypoint
 import com.simple.posedetection.domain.model.PoseFeatures
 import com.simple.posedetection.domain.model.PoseResult
 import com.simple.posedetection.domain.util.angleDegrees
 import kotlin.math.sqrt
 
 /**
- * Converts [PoseResult] into [PoseFeatures] using normalization and [AngleUtils].
+ * Converts [PoseResult] into [PoseFeatures] using normalization and [angleDegrees].
  * Returns null when the frame is rejected (critical keypoints below confidence threshold).
  *
  * Normalization: translate origin to hip midpoint, scale by torso length (shoulder-mid to hip-mid).
@@ -77,11 +76,12 @@ class PoseProcessor(
         } else null
 
         val (sx, sy) = norm(shoulderMid)
-        val torsoAngle = angleDegrees(
+        val rawTorsoAngle = angleDegrees(
             Pair(sx, sy - 1f),
             Pair(sx, sy),
             Pair(0f, 0f)
         )
+        val torsoAngle = rawTorsoAngle?.let { 180f - it }
 
         val hipMidY = hipMid.second
 

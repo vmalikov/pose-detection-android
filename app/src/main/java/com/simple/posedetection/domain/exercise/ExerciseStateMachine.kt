@@ -26,8 +26,11 @@ class ExerciseStateMachine(
         val candidatePhase = when (state.currentPhase) {
             Phase.START ->
                 if (kneeMax < standingThreshold) Phase.DESCENDING else Phase.START
-            Phase.DESCENDING ->
-                if (kneeAvg <= depthThreshold) Phase.BOTTOM else Phase.DESCENDING
+            Phase.DESCENDING -> when {
+                kneeMax >= standingThreshold -> Phase.START
+                kneeAvg <= depthThreshold -> Phase.BOTTOM
+                else -> Phase.DESCENDING
+            }
             Phase.BOTTOM ->
                 if (kneeAvg > depthThreshold) Phase.ASCENDING else Phase.BOTTOM
             Phase.ASCENDING ->
@@ -40,10 +43,10 @@ class ExerciseStateMachine(
         val nextCounter = if (sameCandidate) state.debounceCounter + 1 else 0
         val nextCandidate = candidatePhase
 
-        if (sameCandidate && nextCounter >= n) {
+        if (sameCandidate && (nextCounter + 1) >= n) {
             val newPhase = candidatePhase
             val newRepCount = if (state.currentPhase == Phase.ASCENDING && newPhase == Phase.START) {
-                if (config.minDepthAtBottom && reachedBottomThisCycle) state.repCount + 1 else state.repCount
+                if (!config.minDepthAtBottom || reachedBottomThisCycle) state.repCount + 1 else state.repCount
             } else state.repCount
             if (newPhase == Phase.BOTTOM) reachedBottomThisCycle = true
             if (newPhase == Phase.START) reachedBottomThisCycle = false

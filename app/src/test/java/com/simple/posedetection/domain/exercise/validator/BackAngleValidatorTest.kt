@@ -3,6 +3,7 @@ package com.simple.posedetection.domain.exercise.validator
 import com.simple.posedetection.domain.exercise.ExerciseConfig
 import com.simple.posedetection.domain.exercise.Phase
 import com.simple.posedetection.domain.exercise.Severity
+import com.simple.posedetection.domain.exercise.ValidationCode
 import com.simple.posedetection.domain.model.PoseFeatures
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -62,6 +63,7 @@ class BackAngleValidatorTest {
         assertFalse(r.isValid)
         assertEquals("Keep torso upright", r.message)
         assertEquals(Severity.WARNING, r.severity)
+        assertEquals(ValidationCode.TORSO_DEVIATION, r.code)
     }
 
     @Test

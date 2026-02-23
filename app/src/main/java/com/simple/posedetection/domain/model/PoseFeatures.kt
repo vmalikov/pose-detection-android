@@ -3,7 +3,7 @@ package com.simple.posedetection.domain.model
 /**
  * Biomechanical features derived from a normalized pose.
  * Normalization: origin at hip midpoint, scale by torso length (shoulder-mid to hip-mid).
- * Keypoints with score < [PoseProcessorConfig.defaultConfidenceThreshold] are excluded.
+ * Keypoints with score below the configured confidence threshold are excluded.
  * All values are null when the feature cannot be computed (e.g. low confidence).
  */
 data class PoseFeatures(
